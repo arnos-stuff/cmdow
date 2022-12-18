@@ -99,7 +99,7 @@ def cmdowRowFmt(raw: Union[str, Dict[str,List[str]]]) -> str:
         if col in multicolumns:
             pattern += r"([a-zA-Z ]+)" + end
         elif col in specials:
-            pattern += r"([ \w\:\.\'\[\]\\\/\-]+)" + end
+            pattern += r"([ \w\:\.\'\[\]\\\/\-\|\_\$\^]+)" + end
         else:
             if col != columns[-1]:
                 pattern += r"(.+?)" + end
@@ -107,7 +107,7 @@ def cmdowRowFmt(raw: Union[str, Dict[str,List[str]]]) -> str:
                 pattern += r"(#?[\d\w]+)" + end
     return pattern
 
-def cmdowRow(raw: str, pattern: str) -> List[str]:
+def cmdowRow(raw: str, pattern: str, debug: Optional[bool] = False) -> List[str]:
     row = re.sub(r"[ ]+", " ", raw)
     try:
         prow = re.findall(pattern, row).pop()
@@ -116,13 +116,13 @@ def cmdowRow(raw: str, pattern: str) -> List[str]:
     prow = [autocast(v) for v in prow]
     return [prow]
 
-def cmdowRows(raw_rows: List[str], pattern: str) -> List[List[str]]:
+def cmdowRows(raw_rows: List[str], pattern: str, debug: Optional[bool] = False) -> List[List[str]]:
     rows = []
     for row in raw_rows:
-        rows += cmdowRow(row, pattern)
+        rows += cmdowRow(row, pattern, debug=debug)
     return rows
 
-def cmdowRawDF(raw: str) -> pl.DataFrame:
+def cmdowRawDF(raw: str, debug: Optional[bool] = False) -> pl.DataFrame:
     """
     The raw DataFrame is the DataFrame that is created from the raw output
     of cmdow's /p flag. It is not cleaned up or formatted in any way, except
@@ -141,11 +141,17 @@ def cmdowRawDF(raw: str) -> pl.DataFrame:
     columns, rows = rows[0], rows[1:]
     columns = cmdowHeader(columns)
     pattern = cmdowRowFmt(columns)
-    rows = cmdowRows(rows, pattern)
+    
+    rich.print(f"[bold red]DEBUG:  [/][bold yellow]COLUMN INFO = {columns}[/bold yellow]") if debug else None
+    rich.print(f"[bold red]DEBUG:  [/][bold yellow]PATTERN = {pattern}[/bold yellow]") if debug else None
+    
+    rows = cmdowRows(rows, pattern, debug=debug)
 
-    return pl.DataFrame(rows, columns=columns["columns"])
+    rich.print(f"[bold red]DEBUG:  [/][bold yellow]ROWS = {rows}[/bold yellow]") if debug else None
 
-def cmdowDF(raw: str, expr: Optional[str] = None) -> pl.DataFrame:
+    return pl.DataFrame(rows, columns=columns["columns"], orient="row")
+
+def cmdowDF(raw: str, expr: Optional[str] = None, debug: Optional[bool] = False) -> pl.DataFrame:
     """cmdowDF is the main function for creating a DataFrame from the raw output of cmdow's /p flag.
 
     Adds a way to filter the DataFrame by process name.
@@ -163,7 +169,7 @@ def cmdowDF(raw: str, expr: Optional[str] = None) -> pl.DataFrame:
     Returns:
         pl.DataFrame: the DataFrame with the truncated process names recovered
     """
-    rawDf = cmdowRawDF(raw)
+    rawDf = cmdowRawDF(raw, debug=debug)
     if expr:
         strfilter = expr
     else:
@@ -272,8 +278,9 @@ def cmdowLayout(
 
 # Compare this snippet from core\cmdow.py:
 if __name__ == "__main__":
-    raw = rawCmdow()
-    df = cmdowDF(raw)
+    raw = rawCmdow(taskbar=True)
+    rich.print(raw)
+    df = cmdowDF(raw, debug=True)
     rich.print(df)
     
     # proc = getProcessByName("windowsterminal")
