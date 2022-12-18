@@ -5,6 +5,14 @@ description = "A rich python wrapper on the CMDOW window util"
 authors = ["arnos-stuff <bcda0276@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/arnos-stuff/cmdow"
+repository = "https://github.com/arnos-stuff/cmdow"
+keywords = [
+    "cmdow", "windows", "resizing",
+    "splitting windows", "cli",
+    "terminal", "powershell"
+    ]
+
 
 [tool.poetry.dependencies]
 python = "^3.8"
