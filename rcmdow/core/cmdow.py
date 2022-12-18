@@ -60,9 +60,6 @@ def cmdowHeader(raw: str) -> Dict[str,List[str]]:
             - "multicolumns" is a list of the column names that contain multiple words
     """
     _multicolumns = re.findall(r"-([ \w]+)-", raw)
-    # "Caption" is a special case because it is the only column that contains
-    # special characters, such as : and /.
-    specials = ["Caption"]
     multicolumns = []
     for _col in _multicolumns:
         col = _col.replace(" ", "-")
@@ -72,7 +69,6 @@ def cmdowHeader(raw: str) -> Dict[str,List[str]]:
     return {
         "columns": cols,
         "multicolumns": multicolumns,
-        "specials": specials,
     }
 
 def cmdowRowFmt(raw: Union[str, Dict[str,List[str]]]) -> str:
@@ -84,11 +80,9 @@ def cmdowRowFmt(raw: Union[str, Dict[str,List[str]]]) -> str:
         coldata = cmdowHeader(raw)
         multicolumns = coldata["multicolumns"]
         columns = coldata["columns"]
-        specials = coldata["specials"]
     elif isinstance(raw, dict):
         multicolumns = raw["multicolumns"]
         columns = raw["columns"]
-        specials = raw["specials"]
     else:
         raise TypeError(f"raw must be a string or a dictionary, not {type(raw)}")
     
@@ -98,17 +92,17 @@ def cmdowRowFmt(raw: Union[str, Dict[str,List[str]]]) -> str:
         end = r" " if col != columns[-1] else r""
         if col in multicolumns:
             pattern += r"([a-zA-Z ]+)" + end
-        elif col in specials:
-            pattern += r"([ \w\:\.\'\[\]\\\/\-\|\_\$\^]+)" + end
         else:
             if col != columns[-1]:
                 pattern += r"(.+?)" + end
             else:
-                pattern += r"(#?[\d\w]+)" + end
+                pattern += r"(.+)" + end
     return pattern
 
 def cmdowRow(raw: str, pattern: str, debug: Optional[bool] = False) -> List[str]:
-    row = re.sub(r"[ ]+", " ", raw)
+    """Takes a row of cmdow's /p flag output and returns a list of the values"""
+    row = re.sub(r" [ ]+", " ", raw)
+
     try:
         prow = re.findall(pattern, row).pop()
     except IndexError:
@@ -117,7 +111,9 @@ def cmdowRow(raw: str, pattern: str, debug: Optional[bool] = False) -> List[str]
     return [prow]
 
 def cmdowRows(raw_rows: List[str], pattern: str, debug: Optional[bool] = False) -> List[List[str]]:
+    """Takes a list of rows of cmdow's /p flag output and returns a list of lists of the values"""
     rows = []
+
     for row in raw_rows:
         rows += cmdowRow(row, pattern, debug=debug)
     return rows
@@ -143,11 +139,11 @@ def cmdowRawDF(raw: str, debug: Optional[bool] = False) -> pl.DataFrame:
     pattern = cmdowRowFmt(columns)
     
     rich.print(f"[bold red]DEBUG:  [/][bold yellow]COLUMN INFO = {columns}[/bold yellow]") if debug else None
-    rich.print(f"[bold red]DEBUG:  [/][bold yellow]PATTERN = {pattern}[/bold yellow]") if debug else None
+    print("PATTERN = ", pattern) if debug else None
     
     rows = cmdowRows(rows, pattern, debug=debug)
 
-    rich.print(f"[bold red]DEBUG:  [/][bold yellow]ROWS = {rows}[/bold yellow]") if debug else None
+    # rich.print(f"[bold red]DEBUG:  [/][bold yellow]ROWS = {rows}[/bold yellow]") if debug else None
 
     return pl.DataFrame(rows, columns=columns["columns"], orient="row")
 
@@ -224,6 +220,39 @@ def cmdowActive(
         df = df.filter(pl.col("Image") != "SystemSettings")
     return df
 
+def isMaximizedByName(window: str) -> bool:
+    """Returns whether or not the window is maximized.
+
+    Args:
+        window (str): the name of the window
+
+    Returns:
+        bool: whether or not the window is maximized
+    """
+    df = cmdowDF(rawCmdow(taskbar=True))
+    df = df.filter(
+        (pl.col("Window-status").str.contains("^Max").alias("regex"))
+        & (pl.col("Image").str.to_lowercase().str.contains(window.lower()))
+    )
+    
+    return len(df) > 0
+
+def isMaximizedByHandle(handle: str) -> bool:
+    """Returns whether or not the window is maximized.
+
+    Args:
+        handle (str): the CMDOW handle of the window
+
+    Returns:
+        bool: whether or not the window is maximized
+    """
+    df = cmdowDF(rawCmdow(taskbar=True))
+    df = df.filter(
+        (pl.col("Window-status").str.contains("^Max").alias("regex"))
+        & (pl.col("Handle") == handle)
+    )
+    return len(df) > 0
+
 def cmdowActiveName() -> str:
     """Returns the name of the currently active window.
 
@@ -278,10 +307,12 @@ def cmdowLayout(
 
 # Compare this snippet from core\cmdow.py:
 if __name__ == "__main__":
-    raw = rawCmdow(taskbar=True)
-    rich.print(raw)
-    df = cmdowDF(raw, debug=True)
+    raw = rawCmdow(taskbar=False)
+    # rich.print(raw)
+    df = cmdowDF(raw)
     rich.print(df)
-    
+    # images = df.select("Image").unique()
+    # rich.print(images)
+
     # proc = getProcessByName("windowsterminal")
     # rich.print(proc)

@@ -5,7 +5,7 @@ import os
 from win32api import GetMonitorInfo, MonitorFromPoint
 from typing import List, Tuple, Optional
 
-from rcmdow.core.cmdow import cmdowDF, rawCmdow, cmdowActiveHandle
+from rcmdow.core.cmdow import cmdowDF, rawCmdow, cmdowActiveHandle, isMaximizedByHandle
 
 # left and top value are exceptionally negative for certain programs
 # as well as the width and height values which need to be corrected by a % of the screen size
@@ -104,6 +104,10 @@ def horizontalLayout(
         # get the current active window
         active_handle = cmdowActiveHandle()
         # move the windows after minimizing all other windows
+        if isMaximizedByHandle(handle=left_handle):
+            # move it a little bit to throw off the maximization ?
+            pass
+
         os.system("cmdow /ma")
         os.system(f"cmdow {left_handle} /res")
         os.system(f"cmdow {left_handle} /mov {lw_left} {lw_top} /siz {lw_width} {lw_height}")
