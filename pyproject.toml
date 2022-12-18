@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rcmdow"
-version = "0.1.1a1"
+version = "0.1.1a2"
 description = "A rich python wrapper on the CMDOW window util"
 authors = ["arnos-stuff <bcda0276@gmail.com>"]
 license = "MIT"
